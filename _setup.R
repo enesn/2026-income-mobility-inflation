@@ -12,10 +12,10 @@ attached_packages <- c(
 )
 
 #Only ever called as pkg::fun() — fixest, modelsummary and tinytable in 10, stargazer in 10 and 11,
-#getPass in 02-ingest-combined-micro — so they must be installed but are deliberately not attached.
-#tinytable ships with modelsummary and renders its tables; 10 reaches for it directly to group the
-#columns and to resize the widest table to the text width.
-namespace_packages <- c("fixest", "modelsummary", "tinytable", "stargazer", "getPass")
+#sandwich in the hc1() helper below, getPass in 02-ingest-combined-micro — so they must be installed
+#but are deliberately not attached. tinytable ships with modelsummary and renders its tables; 10
+#reaches for it directly to group the columns and to resize the widest table to the text width.
+namespace_packages <- c("fixest", "modelsummary", "tinytable", "stargazer", "sandwich", "getPass")
 
 required_packages <- c(attached_packages, namespace_packages)
 
@@ -93,6 +93,32 @@ saved_note <- function(path) {
 save_tex <- function(x, path) {
   writeLines(as.character(x), path)
   x
+}
+
+## ==================================================================================================#
+#Inference. Every regression is weighted by the survey weight FK060_4, and the default lm() standard
+#errors would treat those weights as inverse error variances, which sampling weights are not (Solon,
+#Haider & Wooldridge 2015); Koenker-Breusch-Pagan tests reject homoskedasticity in every model. The
+#tables therefore report heteroskedasticity-robust HC1 standard errors (White 1980; MacKinnon & White
+#1985). The MacKinnon, Nielsen & Webb (2023) score-variance test finds no need to cluster by household
+#in the pooled models, so HC1 is used there. The household fixed-effects model is the exception: HC
+#standard errors are inconsistent with unit fixed effects in short panels (Stock & Watson 2008), so it
+#is clustered by household instead (see Table 1 in 10-baseline-models.R).
+hc1 <- function(model) sandwich::vcovHC(model, type = "HC1")
+
+#One entry per coefficient, in coef() order, NA where lm() dropped a term as aliased. vcovHC() leaves
+#aliased terms out, so without this the standard errors would be shorter than the coefficients and
+#a consumer that matches them by position (stargazer, the Fig 4 plot) would pair them wrongly.
+hc1_se <- function(model) {
+  se <- sqrt(diag(hc1(model)))
+  out <- setNames(rep(NA_real_, length(coef(model))), names(coef(model)))
+  out[names(se)] <- se
+  out
+}
+
+#Two-sided t-test p-values from the HC1 standard errors, aligned the same way.
+hc1_p <- function(model) {
+  2 * pt(-abs(coef(model) / hc1_se(model)), df = model$df.residual)
 }
 
 ## ==================================================================================================#

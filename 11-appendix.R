@@ -9,7 +9,7 @@
 # ==================================================================================================#
 
 
-step_header("11 | Appendix: Tables A1-A6")
+step_header("11 | Appendix: Tables A1-A7")
 
 step_note("Table A1: the Fig 2 mobility shares as a table")
 
@@ -125,8 +125,18 @@ mobility_of_class_shares %>%
 
 step_note("Tables A3-A4: the full coefficient sets behind Fig 4")
 
+# HC1 standard errors and p-values, passed explicitly so stargazer cannot pair them with the wrong
+# coefficient (see hc1_se() in _setup.R); star cutoffs as in Tables 1-3, A5 and A6.
+fig4_models <- list(m2, m2upper, m2bottom)
+
 stargazer::stargazer(
-  m2, m2upper, m2bottom,
+  fig4_models,
+  se           = lapply(fig4_models, hc1_se),
+  p            = lapply(fig4_models, hc1_p),
+  star.cutoffs = c(0.1, 0.05, 0.01, 0.001),
+  star.char    = c("+", "*", "**", "***"),
+  notes        = "HC1 standard errors in parentheses. + p$<$0.1; * p$<$0.05; ** p$<$0.01; *** p$<$0.001",
+  notes.append = FALSE,
   out = "outputs-included/tableA3A4-fig4-full-coefficients.tex"
 )
 
@@ -172,6 +182,11 @@ tableA5_body <-
       "(6a)" = did_post2021_cellmeans,
       "(6)"  = did_post2021_cellmeans_adj
     ),
+    # The same standard errors as Table 1, plus HC1 for the unadjusted collapse that only this table
+    # prints.
+    vcov        = unname(c(table1_vcov[c("(3)", "(4)", "(5)")],
+                           list("(6a)" = hc1(did_post2021_cellmeans)),
+                           table1_vcov["(6)"])),
     stars       = TRUE,
     coef_rename = tidy_tableA5_name,
     gof_map     = table1_gof,
@@ -186,7 +201,8 @@ tableA5_body <-
 
 tableA5_note <- paste(
   c(
-    "\\textit{Notes:} The models of Table \\ref{tab:class-inflation-interactions},",
+    "\\textit{Notes:} The models of Table \\ref{tab:class-inflation-interactions}.",
+    "Heteroskedasticity-robust (HC1) standard errors in parentheses; column (5) clustered by household.",
     "+ p $<$ 0.1, * p $<$ 0.05, ** p $<$ 0.01, *** p $<$ 0.001."
   ),
   collapse = "\n"
@@ -247,7 +263,9 @@ tidy_tableA6_name <- function(x) {
 
 tableA6_note <- paste(
   c(
-    "\\textit{Notes:} The model of Table \\ref{tab:labor-market-adjustment}, printed in full."
+    "\\textit{Notes:} The model of Table \\ref{tab:labor-market-adjustment}, printed in full.",
+    "Heteroskedasticity-robust (HC1) standard errors in parentheses.",
+    "+ p $<$ 0.1, * p $<$ 0.05, ** p $<$ 0.01, *** p $<$ 0.001."
   ),
   collapse = "\n"
 )
@@ -269,6 +287,9 @@ tableA6_gof <- tribble(
 tableA6_cells <-
   modelsummary::modelsummary(
     list("$\\Delta$ Decile" = lm_model_3wayinteraction),
+    # As in Table 3. modelsummary computes HC1 itself here and matches it to the coefficients by name,
+    # so the aliased lower_decile term is simply left out.
+    vcov        = "HC1",
     stars       = TRUE,
     coef_rename = tidy_tableA6_name,
     gof_map     = tableA6_gof,
@@ -337,5 +358,129 @@ paste0(
   "\\end{table}\n"
 ) %>%
   save_tex("outputs-included/tableA6-table3-full-coefficients.tex")
+
+# --------------------------------------------------------------------------------------------------
+# Table A7: the Table 1-3 models with HC1 and with household-clustered standard errors
+# --------------------------------------------------------------------------------------------------
+
+step_note("Table A7: Tables 1-3 re-estimated with household-clustered standard errors, beside HC1")
+
+# The panel follows each household for up to four years, so a household contributes several rows to
+# the pooled models of Table 1 (columns 3-4), Table 2 and Table 3. The MacKinnon, Nielsen & Webb (2023)
+# test finds that this dependence does not call for clustering in those models (see the inference note
+# in _setup.R). This table lets a reader check the consequence directly: each model is printed twice,
+# once with the HC1 standard errors of the main text and once clustered by household, so the question
+# is simply whether a coefficient keeps its stars. Column (5) of Table 1 is left out because it is
+# already clustered by household, and column (6) because its unit is a class-year cell.
+#
+# vcovCL() recovers each model's household identifiers from the data the model was fitted on, so the
+# clusters line up with the estimation sample row for row; type = "HC1" applies the clustered analogue
+# of the HC1 small-sample adjustment, G/(G - 1) x (n - 1)/(n - k).
+household_cluster <- function(model) sandwich::vcovCL(model, cluster = ~HKIMLIK, type = "HC1")
+household_count   <- function(model) {
+  dplyr::n_distinct(expand.model.frame(model, ~HKIMLIK, na.expand = FALSE)$HKIMLIK)
+}
+
+# One panel: every model in `models` twice, HC1 then clustered, showing only the coefficients named in
+# `coef_map` (raw name = row label). Built through a data frame, as Table A6 is, so the two columns of a
+# model can share the header "HC1" / "Clustered" under the model's own name.
+tableA7_panel <- function(models, coef_map) {
+  doubled <- unlist(lapply(models, function(m) list(m, m)), recursive = FALSE)
+  names(doubled) <- paste0("m", seq_along(doubled))
+  vcovs <- unlist(lapply(models, function(m) list(hc1(m), household_cluster(m))), recursive = FALSE)
+
+  cells <- modelsummary::modelsummary(
+    doubled,
+    vcov     = unname(vcovs),
+    stars    = TRUE,
+    coef_map = coef_map,
+    gof_map  = tribble(~raw, ~clean, ~fmt, "nobs", "Observations", 0),
+    output   = "data.frame"
+  )
+
+  estimates <- cells %>%
+    filter(part == "estimates") %>%
+    mutate(term = ifelse(statistic == "estimate", term, "")) %>%
+    select(term, all_of(names(doubled)))
+
+  fit <- cells %>% filter(part == "gof") %>% select(term, all_of(names(doubled)))
+  households <- c(
+    term = "Households (clusters)",
+    setNames(rep(as.character(vapply(models, household_count, integer(1))), each = 2),
+             names(doubled))
+  )
+
+  panel <- bind_rows(estimates, fit, as_tibble_row(households))
+  names(panel) <- c(" ", rep(c("HC1", "Clustered"), length(models)))
+
+  tinytable::tt(panel, align = paste0("l", strrep("c", 2 * length(models)))) %>%
+    tinytable::group_tt(j = setNames(lapply(seq_along(models), function(i) 2 * i + 0:1),
+                                     names(models))) %>%
+    # The rule separates the coefficients from the sample sizes under them.
+    tinytable::style_tt(i = nrow(estimates) + 1, line = "t", line_width = 0.05) %>%
+    tinytable::theme_latex(
+      environment_table = FALSE,
+      resize_width      = 1,
+      resize_direction  = "down"
+    ) %>%
+    tinytable::save_tt("latex")
+}
+
+# The coefficients each table is read for: the class interactions in Tables 1 and 2, the three-way
+# interactions in Table 3. The labels are the ones the main-text tables print.
+label_terms <- function(terms, renamer) setNames(renamer(terms), terms)
+
+table1_terms <- c(
+  grep(":log\\(annual_inflation\\)$", names(coef(pi_x_class)), value = TRUE),
+  grep(":as\\.factor\\(post_2021\\)1$", names(coef(did_post2021)), value = TRUE)
+)
+table2_terms <- grep(":as\\.factor\\(post_2021\\)1$", names(coef(mix_change_post)), value = TRUE)
+table3_terms <- names(coef(lm_model_3wayinteraction))[
+  str_count(names(coef(lm_model_3wayinteraction)), ":") == 2
+]
+
+tableA7_bodies <- list(
+  "Panel A: Table \\ref{tab:class-inflation-interactions}, columns (3) and (4)" =
+    tableA7_panel(list("(3)" = pi_x_class, "(4)" = did_post2021),
+                  label_terms(table1_terms, tidy_table1_name)),
+  "Panel B: Table \\ref{tab:income-mix-response}" =
+    tableA7_panel(list("Any change"        = mix_change_post,
+                       "To no dominant"    = mix_change_to_no_dominant,
+                       "To earned income"  = mix_change_to_earned,
+                       "To other unearned" = mix_change_to_unearned),
+                  label_terms(table2_terms, tidy_coef_name)),
+  "Panel C: Table \\ref{tab:labor-market-adjustment}, three-way interactions" =
+    tableA7_panel(list("$\\Delta$ Decile" = lm_model_3wayinteraction),
+                  label_terms(table3_terms, tidy_tableA6_name))
+)
+
+tableA7_note <- paste(
+  c(
+    "\\textit{Notes:} Each model is shown twice: with the heteroskedasticity-robust (HC1) standard errors",
+    "of the main text, and with standard errors clustered by household. Only the coefficients the main",
+    "text interprets are printed; the other regressors are as in the original tables. Column (5) of",
+    "Table \\ref{tab:class-inflation-interactions} is already clustered by household and column (6) is",
+    "estimated on class-year cells, so neither is repeated here.",
+    "+ p $<$ 0.1, * p $<$ 0.05, ** p $<$ 0.01, *** p $<$ 0.001."
+  ),
+  collapse = "\n"
+)
+
+paste0(
+  "\\begin{table}[htbp]\n",
+  "\\centering\n",
+  "\\caption{Tables \\ref{tab:class-inflation-interactions}--\\ref{tab:labor-market-adjustment} with\n",
+  "         HC1 and household-clustered standard errors}\n",
+  "\\label{tab:appendix-cluster-comparison}\n",
+  paste0("\\textit{", names(tableA7_bodies), "}\n\n", unlist(tableA7_bodies),
+         collapse = "\n\n\\medskip\n"),
+  "\n\n\\begin{minipage}{\\linewidth}\n",
+  "\\footnotesize\n",
+  "\\setlength{\\parindent}{0pt}\\setlength{\\parskip}{0.5em}\n",
+  tableA7_note,
+  "\n\\end{minipage}\n",
+  "\\end{table}\n"
+) %>%
+  save_tex("outputs-included/tableA7-hc1-vs-clustered.tex")
 
 options(modelsummary_stars_note = stars_note_option)

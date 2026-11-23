@@ -45,7 +45,7 @@ You can also run the scripts individually: run [_setup.R](_setup.R) first, then 
 | [08-class-mobility-extended.R](08-class-mobility-extended.R) | Adds the household head's education and occupation, and the minimum wage | |
 | [09-mean-delta-rank.R](09-mean-delta-rank.R) | Average rank change of each class, year by year | Figure 3 |
 | [10-baseline-models.R](10-baseline-models.R) | Baseline regressions | Figure 4, Tables 1-3 |
-| [11-appendix.R](11-appendix.R) | Appendix tables | Tables A1-A6 |
+| [11-appendix.R](11-appendix.R) | Appendix tables | Tables A1-A7 |
 
 ## Version history
 
