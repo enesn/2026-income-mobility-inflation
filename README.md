@@ -29,7 +29,7 @@ This will run all the scripts in order and print the running time of each step. 
 
 You can also run the scripts individually: run [_setup.R](_setup.R) first, then the numbered scripts in order, in the same R session.
 
-## What each script does
+## Scripts
 
 | Script | Content | Output |
 |---|---|---|
