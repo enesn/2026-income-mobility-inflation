@@ -256,6 +256,16 @@ table1_gof <- tribble(
 stars_note_option <- getOption("modelsummary_stars_note")
 options(modelsummary_stars_note = FALSE)
 
+# HC1 for the pooled and cell-mean models; household clustering for the fixed-effects model, where HC
+# standard errors are inconsistent (see the inference note in _setup.R). Kept as a named object so
+# Table A5 in 11-appendix.R can print the same standard errors.
+table1_vcov <- list(
+  "(3)" = hc1(pi_x_class),
+  "(4)" = hc1(did_post2021),
+  "(5)" = vcov(hhlevel_fe, vcov = ~HKIMLIK),
+  "(6)" = hc1(did_post2021_cellmeans_adj)
+)
+
 table1_body <-
   modelsummary::modelsummary(
     list(
@@ -264,6 +274,7 @@ table1_body <-
       "(5)" = hhlevel_fe,
       "(6)" = did_post2021_cellmeans_adj #newly added
     ),
+    vcov        = unname(table1_vcov),
     stars       = TRUE,
     coef_rename = tidy_table1_name,
     coef_omit   = "decile_prev1",
@@ -288,6 +299,7 @@ options(modelsummary_stars_note = stars_note_option)
 table1_note <- paste(
   c(
     "\\textit{Notes:}",
+    "Heteroskedasticity-robust (HC1) standard errors in parentheses; column (5) clustered by household.",
     "+ p $<$ 0.1, * p $<$ 0.05, ** p $<$ 0.01, *** p $<$ 0.001."
   ),
   collapse = "\n"
@@ -448,6 +460,8 @@ income_mix_body <-
       "To earned income"  = mix_change_to_earned,
       "To other unearned" = mix_change_to_unearned
     ),
+    vcov        = lapply(list(mix_change_post, mix_change_to_no_dominant,
+                              mix_change_to_earned, mix_change_to_unearned), hc1),
     stars       = TRUE,
     coef_rename = tidy_coef_name,
     gof_map     = c("nobs", "r.squared"),
@@ -475,7 +489,7 @@ income_mix_note <- paste(
     "",
     "The key explanatory variable in these models is the class the household did belong to in the \\emph{previous} year.",
     "Contrast this with the four-year persistent class definition employed by the models discussed elsewhere in the paper.",
-    "Employer is the reference class. Homoskedastic standard errors in parentheses.",
+    "Employer is the reference class. Heteroskedasticity-robust (HC1) standard errors in parentheses.",
     "+ p $<$ 0.1, * p $<$ 0.05, ** p $<$ 0.01, *** p $<$ 0.001."
   ),
   collapse = "\n"
@@ -622,8 +636,19 @@ lm_model_3wayinteraction <- lm(
 # Latex table
 # The caption and the label were empty here, which printed a bare "Table 3:" in the paper and left the
 # table impossible to \ref{}; the appendix table that prints this model in full refers to it by label.
+# HC1 standard errors (see the inference note in _setup.R). The p-values are passed explicitly rather
+# than left to stargazer: the model has one aliased term (lower_decile, collinear with the origin-decile
+# dummies), and stargazer pairs se= with the coefficients by position when it computes stars itself.
+# The star cutoffs follow Tables 1, 2 and A6 rather than stargazer's 0.1/0.05/0.01 default, so a
+# coefficient carries the same stars here as in its appendix table.
 stargazer::stargazer(
   lm_model_3wayinteraction,
+  se           = list(hc1_se(lm_model_3wayinteraction)),
+  p            = list(hc1_p(lm_model_3wayinteraction)),
+  star.cutoffs = c(0.1, 0.05, 0.01, 0.001),
+  star.char    = c("+", "*", "**", "***"),
+  notes        = "HC1 standard errors in parentheses. + p$<$0.1; * p$<$0.05; ** p$<$0.01; *** p$<$0.001",
+  notes.append = FALSE,
   title = "Labor market adjustment and relative income mobility of laborer households",
   label = "tab:labor-market-adjustment",
   out = "outputs-included/table3-labor-market-adjustment.tex"
