@@ -121,7 +121,7 @@ m2s <- bind_rows(
      width = 0.2,
      position = position_dodge(width = 0.45)
    ) +
-   facet_wrap(~type, nrow = 3) +
+   facet_wrap(~type, nrow = 3, labeller = class_labeller) +
    geom_hline(yintercept = 0, linetype = "dashed") +
    labs(x = "Destination year (t)", y = expression(beta[gt])) +
    theme_bw() +

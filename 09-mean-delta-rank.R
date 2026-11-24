@@ -25,7 +25,7 @@ step_header("09 | How far each class moves in the distribution, year by year (Fi
   scale_x_continuous(breaks=seq(2012,2023,1)) +
   labs(y= "Mean Change in Decile, from t-1 to t",  x= "Destination Year (t)")+
   geom_hline(yintercept = 0, linetype = "dashed", size= 1)+
-  facet_wrap(~type)+
+  facet_wrap(~type, labeller = class_labeller)+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90), axis.title.x = element_text(size = 16), axis.title.y = element_text(size = 16)))
   

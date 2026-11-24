@@ -23,7 +23,7 @@ step_header("07 | Which income sources and margins drive the moves up and down (
     pivot_longer(cols = p_labor_intensive2_contribution:hh_financial_exit2_contribution, names_to = "Source", values_to = "Contribution") %>%
     group_by(income_year,  mobility, Source) %>%
     summarise(mean.Contribution = weighted.mean(Contribution, as.numeric(FK060_4), na.rm = T), se = weighted_se(Contribution, as.numeric(FK060_4))) %>%
-    mutate(income = if_else(str_detect(Source, "labor"), "Labor income",
+    mutate(income = if_else(str_detect(Source, "labor"), "Labour income",
                             if_else(str_detect(Source, "pension"), "Pension income",
                                     if_else(str_detect(Source, "imprent"), "Imputed rent income",
                                             ifelse(str_detect(Source, "self"), "Self-employer income",

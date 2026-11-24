@@ -83,7 +83,7 @@ mobility_of_class_shares <-
     mobility_of_class_shares %>%
     ggplot(aes(x=income_year, y = p*100)) +
     geom_col(aes(fill=mobility)) +
-    facet_wrap(~type) +
+    facet_wrap(~type, labeller = class_labeller) +
     scale_x_continuous(breaks= c(seq(2012, 2023, 1)))+
     labs( x = "Destination Year", y = "%")+
     scale_fill_viridis_d() +

@@ -96,6 +96,16 @@ save_tex <- function(x, path) {
 }
 
 ## ==================================================================================================#
+#Figure labels. The class is stored as "Laborer" and the code filters on that spelling, but the paper
+#is written in British English ("labourer", "labour income"), so the figures relabel it only where it
+#is printed: facet_wrap(..., labeller = class_labeller) in Figs 2-4. The data are left untouched.
+class_display_names <- c("Laborer" = "Labourer")
+
+class_labeller <- ggplot2::as_labeller(function(x) {
+  ifelse(x %in% names(class_display_names), class_display_names[x], x)
+})
+
+## ==================================================================================================#
 #Inference. Every regression is weighted by the survey weight FK060_4, and the default lm() standard
 #errors would treat those weights as inverse error variances, which sampling weights are not (Solon,
 #Haider & Wooldridge 2015); Koenker-Breusch-Pagan tests reject homoskedasticity in every model. The
