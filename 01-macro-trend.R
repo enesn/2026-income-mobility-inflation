@@ -47,7 +47,7 @@ step_header("01 | Macro trend: annual inflation 2013-2023, the three inflation r
       "text",
       x = as.Date("2020-01-01"),
       y = 45,                     # adjust based on your data range
-      label = "Accelarating inflation",# your label text
+      label = "Accelerating inflation",# your label text
       color = "black",
       angle = 90,
       vjust = -0.5,
